@@ -1,0 +1,11 @@
+{:header "docker"
+ :title
+ "A [pallet](http://palletops.com/) crate to install and configure
+ [docker](http://docker.io)."
+ :git-repo "https://github.com/pallet/docker-crate"
+ :api-docs "http://palletops.com/docker-crate/0.8/api"
+ :annotated-docs "http://palletops.com/docker-crate/0.8/annotated/uberdoc.html"
+ :tag-prefix ""
+ :artifact-id "docker-crate"
+ :source-path "src/pallet/crate/docker.clj"
+ :versions [{:pallet "0.8.0-beta.10" :version "0.8.0-SNAPSHOT"}]}
