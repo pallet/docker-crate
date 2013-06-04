@@ -126,8 +126,17 @@
               ("xargs" docker inspect)))]
     (with-action-values [res]
       (if (zero? (:exit res))
-        {:exit 0
-         :out (yaml/parse-string (:out res))}))))
+        ;; remove everything before first {, such as downloading messages
+        ;; from the image being pulled
+        (let [out (string/replace-first (:out res) #"(?m)[^{}]*\{" "{")]
+          (debugf "run %s" out)
+          (try
+            {:exit 0
+             :out (yaml/parse-string out)}
+            (catch Exception e
+              {:exit 1
+               :exception e})))
+        {:exit 1}))))
 
 (defplan kill
   "kill a container"
