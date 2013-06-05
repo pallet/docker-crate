@@ -117,12 +117,14 @@
 (defplan run
   "Run a container"
   [image-id cmd options]
-  (let [opt-string (-> options
+  (debugf "run %s %s %s" image-id cmd options)
+  (let [opt-string (-> (dissoc options :port)
                        (translate-options run-options)
                        map-to-arg-string)
+        port-string (string/join " " (map #(str "-p " %) (:port options)))
         res (exec-script
              (pipe
-              ("docker" run ~opt-string ~image-id ~cmd)
+              ("docker" run ~opt-string ~port-string ~image-id ~cmd)
               ("xargs" docker inspect)))]
     (with-action-values [res]
       (if (zero? (:exit res))
