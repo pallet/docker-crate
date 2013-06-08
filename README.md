@@ -51,6 +51,6 @@ Only supports Ubuntu 12.04 and 13.04.
 
 ## License
 
-Copyright (C) 2012, 2013 Hugo Duncan
+Copyright (C) 2013 Hugo Duncan
 
 Distributed under the Eclipse Public License.
