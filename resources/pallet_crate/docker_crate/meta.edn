@@ -8,4 +8,4 @@
  :tag-prefix ""
  :artifact-id "docker-crate"
  :source-path "src/pallet/crate/docker.clj"
- :versions [{:pallet "0.8.0-beta.10" :version "0.8.0-SNAPSHOT"}]}
+ :versions [{:pallet "0.8.0-RC.1" :version "0.8.0-SNAPSHOT"}]}
