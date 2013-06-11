@@ -166,4 +166,5 @@
             :install (plan-fn
                        (install options))
             :configure (plan-fn
-                         (configure options))}))
+                         (configure options))}
+   :default-phases [:install :configure]))
