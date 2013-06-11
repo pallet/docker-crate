@@ -13,7 +13,8 @@
    [pallet.crate.network-service :refer [wait-for-port-listen]]))
 
 (deftest invoke-test
-  (is (build-actions/build-actions {}
+  (is (build-actions/build-actions
+          {:server {:image {:os-family :ubuntu :os-version "13.04"}}}
         (docker/settings {})
         (docker/install {})
         (docker/configure {}))))
