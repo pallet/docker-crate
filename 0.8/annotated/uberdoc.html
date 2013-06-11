@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8" content="text/html" http-equiv="Content-Type" /><meta content="Crate for riemann installation" name="description" /><style type="text/css">/**
+<html><head><meta charset="utf-8" content="text/html" http-equiv="Content-Type" /><meta content="Crate for docker installation" name="description" /><style type="text/css">/**
  * SyntaxHighlighter
  * http://alexgorbatchev.com/SyntaxHighlighter
  *
@@ -3028,163 +3028,152 @@ net.brehaut.ClojureTools = (function (SH) {
     build_tree: build_tree
   };
 })(SyntaxHighlighter);
-</script><title>com.palletops/riemann-crate -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">com.palletops/riemann-crate</h1><h2 class="project-version">0.8.0-SNAPSHOT</h2><br /><p>Crate for riemann installation</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.4.0</td></tr><tr><td class="dep-name">com.palletops/pallet</td><td class="dotted"><hr /></td><td class="dep-version">0.8.0-beta.6</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#pallet.crate.riemann">pallet.crate.riemann</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#pallet.crate.riemann" name="pallet.crate.riemann"><h1 class="project-name">pallet.crate.riemann</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>A pallet crate to install and configure riemann</p>
-</td><td class="codes"><pre class="brush: clojure">(ns pallet.crate.riemann
+</script><title>com.palletops/docker-crate -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">com.palletops/docker-crate</h1><h2 class="project-version">0.8.0-alpha.1</h2><br /><p>Crate for docker installation</p>
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.4.0</td></tr><tr><td class="dep-name">com.palletops/pallet</td><td class="dotted"><hr /></td><td class="dep-version">0.8.0-RC.1</td></tr><tr><td class="dep-name">clj-yaml</td><td class="dotted"><hr /></td><td class="dep-version">0.4.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#pallet.crate.docker">pallet.crate.docker</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#pallet.crate.docker" name="pallet.crate.docker"><h1 class="project-name">pallet.crate.docker</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>A pallet crate to install and configure docker</p>
+</td><td class="codes"><pre class="brush: clojure">(ns pallet.crate.docker
   (:require
+   [clj-yaml.core :as yaml]
+   [clojure.string :as string :refer [blank? split]]
    [clojure.tools.logging :refer [debugf]]
-   [pallet.actions :as actions]
    [pallet.action :refer [with-action-options]]
-   [pallet.actions :refer [directory exec-checked-script remote-directory
-                           remote-file]]
+   [pallet.actions :refer [as-action directory exec-checked-script exec-script
+                           packages plan-when remote-directory remote-file
+                           with-action-values]]
    [pallet.api :refer [plan-fn] :as api]
-   [pallet.crate :refer [assoc-settings defmethod-plan defplan get-settings]]
+   [pallet.crate :refer [assoc-settings defmethod-plan defplan get-settings
+                         service-phases]]
    [pallet.crate-install :as crate-install]
    [pallet.crate.nohup]
    [pallet.crate.service
     :refer [supervisor-config supervisor-config-map] :as service]
-   [pallet.utils :refer [apply-map]]
-   [pallet.script.lib :refer [config-root file log-root]]
-   [pallet.stevedore :refer [fragment]]
+   [pallet.utils :refer [apply-map maybe-update-in]]
+   [pallet.script.lib :refer [config-root file log-root translate-options]]
+   [pallet.stevedore :refer [fragment map-to-arg-string]]
    [pallet.version-dispatch :refer [defmethod-version-plan
                                     defmulti-version-plan]]))</pre></td></tr><tr><td class="docs"><p>Flag for recognising changes to configuration</p>
 </td><td class="codes"><pre class="brush: clojure">(def 
-  riemann-config-changed-flag &quot;riemann-config&quot;)</pre></td></tr><tr><td class="docs"><p>Return a service name for riemann.</p>
-
-<h1>Settings</h1>
-</td><td class="codes"><pre class="brush: clojure">(defn service-name
-  [{:keys [instance-id] :as options}]
-  (str &quot;riemann&quot; (when instance-id (str &quot;-&quot; instance-id))))</pre></td></tr><tr><td class="docs">
+  docker-config-changed-flag &quot;docker-config&quot;)</pre></td></tr><tr><td class="docs"><h1>Settings</h1>
 </td><td class="codes"><pre class="brush: clojure">(defn default-settings [options]
-  {:version &quot;0.1.5&quot;
-   :user &quot;riemann&quot;
-   :owner &quot;riemann&quot;
-   :group &quot;riemann&quot;
-   :home &quot;/opt/riemann&quot;
-   :config-dir (fragment (file (config-root) &quot;riemann&quot;))
-   :log-dir (fragment (file (log-root) &quot;riemann&quot;))
-   :supervisor :nohup
-   :nohup {:process-name &quot;java&quot;}
-   :service-name (service-name options)
-   :dist-url &quot;http://aphyr.com/riemann/riemann-%s.tar.bz2&quot;
-   :deb-url &quot;http://aphyr.com/riemann/riemann_%s_all.deb&quot;
-   :config '(do
-              (logging/init :file &quot;/var/log/riemann/riemann.log&quot;)
-              (tcp-server :host &quot;0.0.0.0&quot;)
-              (udp-server :host &quot;0.0.0.0&quot;)
-              (periodically-expire 10)
-              (let [client (tcp-client)
-                                        ; Keep events for 5 minutes by default
-                    index (default :ttl 300 (update-index (index)))]
-                (streams
-                 (with {:metric_f 1 :host nil :state &quot;ok&quot; :service &quot;events/sec&quot;}
-                       (rate 5 index))
-                 (where (service #&quot;^per&quot;)
-                        (percentiles 5 [0 0.5 0.95 0.99 1]
-                                     index))
-                                        ; Log expired events.
-                 (expired
-                  (fn [event] (info &quot;expired&quot; event)))
-                 index)))})</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn url
-  [{:keys [dist-url version] :as settings}]
-  {:pre [dist-url version]}
-  (format dist-url version))</pre></td></tr><tr><td class="docs"><p>Return a script command to run riemann.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn run-command
-  [{:keys [home user config-dir] :as settings}]
-  (fragment ((file ~home &quot;bin&quot; &quot;riemann&quot;) (file ~config-dir &quot;riemann.conf&quot;))))</pre></td></tr><tr><td class="docs"><p>At the moment we just have a single implementation of settings,
+  {:ppa {:url &quot;ppa:dotcloud/lxc-docker&quot;}})</pre></td></tr><tr><td class="docs"><p>At the moment we just have a single implementation of settings,
 but this is open-coded.</p>
 </td><td class="codes"><pre class="brush: clojure">(defmulti-version-plan settings-map [version settings])</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defmethod-version-plan
-    settings-map {:os :linux}
+    settings-map {:os :ubuntu :os-version [12 04]}
     [os os-version version settings]
   (cond
    (:install-strategy settings) settings
    :else  (assoc settings
-            :install-strategy ::download
-            :remote-file {:url (url settings)
-                          :md5-url (str (url settings) &quot;.md5&quot;)
-                          :tar-options &quot;xj&quot;})))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod supervisor-config-map [:riemann :runit]
-  [_ {:keys [run-command service-name user] :as settings} options]
-  {:service-name service-name
-   :run-file {:content (str &quot;#!/bin/sh\nexec chpst -u &quot; user &quot; &quot; run-command)}})</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod supervisor-config-map [:riemann :nohup]
-  [_ {:keys [run-command service-name user] :as settings} options]
-  {:service-name service-name
-   :run-file {:content run-command}
-   :user user})</pre></td></tr><tr><td class="docs"><p>Settings for riemann</p>
+            :install-strategy :package-source
+            :package-source {:name &quot;dotcloud&quot; :apt (:ppa settings)}
+            :packages [&quot;lxc-docker&quot;]
+            ::packages [&quot;linux-image-generic-lts-raring&quot;]
+            ::reboot true)))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defmethod-version-plan
+    settings-map {:os :ubuntu :os-version [13 04]}
+    [os os-version version settings]
+  (cond
+   (:install-strategy settings) settings
+   :else  (assoc settings
+            :install-strategy :package-source
+            :package-source {:name &quot;dotcloud&quot; :apt (:ppa settings)}
+            :packages [&quot;lxc-docker&quot;]
+            ::packages [&quot;linux-image-extra-`uname -r`&quot;])))</pre></td></tr><tr><td class="docs"><p>Settings for docker</p>
 </td><td class="codes"><pre class="brush: clojure">(defplan settings
   [{:keys [user owner group dist dist-urls version instance-id]
     :as settings}
    &amp; {:keys [instance-id] :as options}]
   (let [settings (merge (default-settings options) settings)
-        settings (settings-map (:version settings) settings)
-        settings (update-in settings [:run-command]
-                            #(or % (run-command settings)))]
-    (assoc-settings :riemann settings {:instance-id instance-id})
-    (supervisor-config :riemann settings (or options {}))))</pre></td></tr><tr><td class="docs"><p>Create the riemann user</p>
+        settings (settings-map (:version settings) settings)]
+    (assoc-settings :docker settings {:instance-id instance-id})))</pre></td></tr><tr><td class="docs"><p>Install docker.</p>
 
-<h1>User</h1>
-</td><td class="codes"><pre class="brush: clojure">(defplan user
-  [{:keys [instance-id] :as options}]
-  (let [{:keys [user owner group home]} (get-settings :riemann options)]
-    (actions/group group :system true)
-    (when (not= owner user)
-      (actions/user owner :group group :system true))
-    (actions/user
-     user :group group :system true :create-home true :shell :bash)))</pre></td></tr><tr><td class="docs"><h1>Install</h1>
-</td><td class="codes"><pre class="brush: clojure">(defmethod-plan crate-install/install ::download
-  [facility instance-id]
-  (let [{:keys [user owner group home remote-file] :as settings}
-        (get-settings facility {:instance-id instance-id})]
-    (directory home :owner owner :group group)
-    (apply-map remote-directory home :owner owner :group group remote-file)))</pre></td></tr><tr><td class="docs"><p>Install riemann.</p>
+<h1>Install</h1>
 </td><td class="codes"><pre class="brush: clojure">(defplan install
   [{:keys [instance-id]}]
   (let [{:keys [owner group log-dir] :as settings}
-        (get-settings :riemann {:instance-id instance-id})]
-    (crate-install/install :riemann instance-id)
-    (when log-dir
-      (directory log-dir :owner owner :group group :mode &quot;0755&quot;))))</pre></td></tr><tr><td class="docs"><p>Helper to write config files</p>
+        (get-settings :docker {:instance-id instance-id})]
+    (packages :apt (::packages settings))
+    (plan-when (::reboot settings)
+      (exec-script (&quot;reboot&quot;))
+      (as-action
+       (Thread/sleep 30000)))
+    (crate-install/install :docker instance-id)))</pre></td></tr><tr><td class="docs"><p>Write all config files</p>
 
 <h1>Configuration</h1>
-</td><td class="codes"><pre class="brush: clojure">(defplan config-file
-  [{:keys [owner group config-dir] :as settings} filename file-source]
-  (directory config-dir :owner owner :group group)
-  (apply-map
-   remote-file (fragment (file ~config-dir ~filename))
-   :flag-on-changed riemann-config-changed-flag
-   :owner owner :group group
-   file-source))</pre></td></tr><tr><td class="docs"><p>Write all config files</p>
 </td><td class="codes"><pre class="brush: clojure">(defplan configure
   [{:keys [instance-id] :as options}]
-  (let [{:keys [config] :as settings} (get-settings :riemann options)]
-    (debugf &quot;configure %s %s&quot; settings options)
-    (config-file settings &quot;riemann.conf&quot; {:content (str config)})))</pre></td></tr><tr><td class="docs"><p>Run the riemann service.</p>
+  (let [{:keys [config] :as settings} (get-settings :docker options)]))</pre></td></tr><tr><td class="docs"><p>Return a list of nodes</p>
 
-<h1>Run</h1>
-</td><td class="codes"><pre class="brush: clojure">(defplan service
-  [&amp; {:keys [action if-flag if-stopped instance-id]
-      :or {action :manage}
-      :as options}]
-  (let [{:keys [supervision-options] :as settings}
-        (get-settings :riemann {:instance-id instance-id})]
-    (service/service settings (merge supervision-options
-                                     (dissoc options :instance-id)))))</pre></td></tr><tr><td class="docs"><p>Returns a server-spec that installs and configures riemann.</p>
+<h1>Commands</h1>
+</td><td class="codes"><pre class="brush: clojure">(defplan nodes
+  []
+  (let [res (exec-script
+             (pipe (&quot;docker&quot; ps -notrunc)
+                   (&quot;tail&quot; -n &quot;+2&quot;)
+                   (&quot;awk&quot; &quot;'{ print $1 }'&quot;)
+                   (while (&quot;read&quot; uuid) (&quot;docker&quot; inspect @uuid) (println))))]
+    (with-action-values [res]
+      (if (zero? (:exit res))
+        {:exit 0
+         :out (-&gt;&gt; (split (:out res) #&quot;(?m)^\{&quot;)
+                   (remove blank?)
+                   (map #(str &quot;{&quot; %))
+                   (map yaml/parse-string)
+                   vec)}))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(def run-options {:interactive :i
+                  :ptty :t
+                  :cpu-shares :c
+                  :detached :d
+                  :hostname :h
+                  :memory :m
+                  :port :p
+                  :username :u
+                  :volumes :v})</pre></td></tr><tr><td class="docs"><p>Run a container</p>
+</td><td class="codes"><pre class="brush: clojure">(defplan run
+  [image-id cmd options]
+  (debugf &quot;run %s %s %s&quot; image-id cmd options)
+  (let [opt-string (-&gt; (dissoc options :port)
+                       (translate-options run-options)
+                       map-to-arg-string)
+        port-string (string/join &quot; &quot; (map #(str &quot;-p &quot; %) (:port options)))
+        res (exec-checked-script
+             &quot;docker run&quot;
+             (pipe
+              (&quot;docker&quot; run ~opt-string ~port-string ~image-id ~cmd)
+              (&quot;xargs&quot; docker inspect)))]
+    (with-action-values [res]
+      (if (zero? (:exit res))
+        ;; remove everything before first {, such as downloading messages
+        ;; from the image being pulled
+        (let [out (string/replace-first (:out res) #&quot;(?m)[^{}]*\{&quot; &quot;{&quot;)]
+          (debugf &quot;run %s&quot; out)
+          (try
+            {:exit 0
+             :out (yaml/parse-string out)}
+            (catch Exception e
+              {:exit 1
+               :exception e})))
+        {:exit 1}))))</pre></td></tr><tr><td class="docs"><p>kill a container</p>
+</td><td class="codes"><pre class="brush: clojure">(defplan kill
+  [id]
+  (exec-checked-script
+   &quot;docker kill&quot;
+   (&quot;docker&quot; kill ~id)))</pre></td></tr><tr><td class="docs"><p>Commit a container</p>
+</td><td class="codes"><pre class="brush: clojure">(defplan commit
+  [id {:keys [author m run tag] :as options}]
+  (let [options (maybe-update-in options [:run]
+                                 #(when (string? %) (yaml/generate-string %)))]
+    (exec-script (&quot;docker&quot; commit ~(map-to-arg-string (dissoc options :tag))
+                  ~id ~(:tag options &quot;&quot;)))))</pre></td></tr><tr><td class="docs"><p>Returns a server-spec that installs and configures docker.</p>
+
+<h1>Server Spec</h1>
 </td><td class="codes"><pre class="brush: clojure">(defn server-spec
   [settings &amp; {:keys [instance-id] :as options}]
   (api/server-spec
-   :phases
-   {:settings (plan-fn (pallet.crate.riemann/settings (merge settings options)))
-    :install (plan-fn
-               (user options)
-               (install options))
-    :configure (plan-fn
-                 (configure options)
-                 (apply-map service :action :enable options))
-    :run (plan-fn
-           (apply-map service :action :start options))
-    :stop (plan-fn
-            (apply-map service :action :stop options))}))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+   :phases {:settings (plan-fn
+                        (pallet.crate.docker/settings (merge settings options)))
+            :install (plan-fn
+                       (install options))
+            :configure (plan-fn
+                         (configure options))}
+   :default-phases [:install :configure]))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
        SyntaxHighlighter.all()</script></body></html>
