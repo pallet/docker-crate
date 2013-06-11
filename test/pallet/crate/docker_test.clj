@@ -1,19 +1,20 @@
 (ns pallet.crate.docker-test
   (:require
    [clojure.test :refer [deftest is]]
-   [pallet.crate.docker :as docker]
-   [pallet.actions :refer [package-manager]]
+   [clojure.tools.logging :refer [debugf]]
+   [pallet.actions :refer [as-action assoc-settings package-manager
+                           with-action-values]]
+   [pallet.argument :refer [delayed]]
    [pallet.algo.fsmop :refer [complete?]]
    [pallet.api :refer [plan-fn server-spec]]
    [pallet.build-actions :as build-actions]
-   [pallet.crate.java :as java]
-   [pallet.crate.network-service :refer [wait-for-port-listen]]
-   [pallet.crate.nohup :as nohup]
-   [pallet.crate.runit :as runit]
-   [pallet.crate.upstart :as upstart]))
+   [pallet.crate :refer [get-settings]]
+   [pallet.crate.docker :as docker]
+   [pallet.crate.network-service :refer [wait-for-port-listen]]))
 
 (deftest invoke-test
-  (is (build-actions/build-actions {}
+  (is (build-actions/build-actions
+          {:server {:image {:os-family :ubuntu :os-version "13.04"}}}
         (docker/settings {})
         (docker/install {})
         (docker/configure {}))))
@@ -21,5 +22,26 @@
 (def live-test-spec
   (server-spec
    :extends [(docker/server-spec {})]
-   :phases {:install (plan-fn (package-manager :update))
-            :test (plan-fn )}))
+   :phases {:bootstrap (plan-fn (package-manager :update))
+            :test-run (plan-fn
+                        (let [v (docker/run
+                                 "pallet/ubuntu2" "/usr/sbin/sshd -D"
+                                 {:detached true})
+                              n (docker/nodes)
+                              id (with-action-values [v]
+                                   (debugf "node id is %s" v)
+                                   {:id (:Id (:out v))})]
+                          (assoc-settings :docker-test id)
+                          (let [n2 (docker/nodes)]
+                             (with-action-values [n n2 id]
+                               (assert (= 1 (count (:out n))) "run failed")
+                               (assert (= (:id id) (:Id (first (:out n))))
+                                       "incorrect id")))))
+            :test-kill (plan-fn
+                         (let [{:keys [id]} (get-settings :docker-test)]
+                           (docker/kill id)
+                           (let [n (docker/nodes)]
+                             (with-action-values [n]
+                               (assert (zero? (count (:out n)))
+                                       "kill failed")))))}
+   :default-phases [:install :configure :test-run :test-kill]))

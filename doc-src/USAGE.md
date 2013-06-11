@@ -14,4 +14,8 @@ crates wanting to interact with docker.
 The `install` function is responsible for actually installing docker.  At
 present installation from ppa is the only supported method.
 
-Only supports Ubuntu 12.04 and 13.04.
+The `run` function can be used to start a container, `kill` to stop a container.
+
+The `nodes` function lists running containers.
+
+Only supports Ubuntu 12.04 and 13.04 as the docker host node.

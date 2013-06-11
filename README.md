@@ -10,7 +10,7 @@ A [pallet](http://palletops.com/) crate to install and configure
 ### Dependency Information
 
 ```clj
-:dependencies [[com.palletops/docker-crate "0.8.0-SNAPSHOT"]]
+:dependencies [[com.palletops/docker-crate "0.8.0-alpha.1"]]
 ```
 
 ### Releases
@@ -21,12 +21,12 @@ A [pallet](http://palletops.com/) crate to install and configure
 </thead>
 <tbody>
   <tr>
-    <th>0.8.0-beta.10</th>
-    <td>0.8.0-SNAPSHOT</td>
+    <th>0.8.0-RC.1</th>
+    <td>0.8.0-alpha.1</td>
     <td>clojars</td>
     <td>com.palletops</td>
-    <td><a href='https://github.com/pallet/docker-crate/blob/0.8.0-SNAPSHOT/ReleaseNotes.md'>Release Notes</a></td>
-    <td><a href='https://github.com/pallet/docker-crate/blob/0.8.0-SNAPSHOT/'>Source</a></td>
+    <td><a href='https://github.com/pallet/docker-crate/blob/0.8.0-alpha.1/ReleaseNotes.md'>Release Notes</a></td>
+    <td><a href='https://github.com/pallet/docker-crate/blob/0.8.0-alpha.1/'>Source</a></td>
   </tr>
 </tbody>
 </table>
@@ -47,7 +47,11 @@ crates wanting to interact with docker.
 The `install` function is responsible for actually installing docker.  At
 present installation from ppa is the only supported method.
 
-Only supports Ubuntu 12.04 and 13.04.
+The `run` function can be used to start a container, `kill` to stop a container.
+
+The `nodes` function lists running containers.
+
+Only supports Ubuntu 12.04 and 13.04 as the docker host node.
 
 ## License
 

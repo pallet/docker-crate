@@ -122,7 +122,8 @@
                        (translate-options run-options)
                        map-to-arg-string)
         port-string (string/join " " (map #(str "-p " %) (:port options)))
-        res (exec-script
+        res (exec-checked-script
+             "docker run"
              (pipe
               ("docker" run ~opt-string ~port-string ~image-id ~cmd)
               ("xargs" docker inspect)))]
@@ -143,7 +144,9 @@
 (defplan kill
   "kill a container"
   [id]
-  (exec-script ("docker" kill ~id)))
+  (exec-checked-script
+   "docker kill"
+   ("docker" kill ~id)))
 
 (defplan commit
   "Commit a container"
@@ -163,4 +166,5 @@
             :install (plan-fn
                        (install options))
             :configure (plan-fn
-                         (configure options))}))
+                         (configure options))}
+   :default-phases [:install :configure]))
