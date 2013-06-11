@@ -8,6 +8,10 @@
             [lein-resource "0.3.2"]
             [codox/codox.leiningen "0.6.4"]
             [lein-marginalia "0.7.1"]]}
+ :test
+ {:dependencies [[com.palletops/pallet "0.8.0-RC.1" :classifier "tests"]
+                 [ch.qos.logback/logback-classic "1.0.9"]]
+  :resource-paths ["resources" "dev-resources"]}
  :doc {:dependencies [[com.palletops/pallet-codox "0.1.0"]]
        :plugins [[codox/codox.leiningen "0.6.4"]
                  [lein-marginalia "0.7.1"]]
