@@ -94,15 +94,13 @@
              (pipe ("docker" ps -notrunc)
                    ("tail" -n "+2")
                    ("awk" "'{ print $1 }'")
-                   (while ("read" uuid) ("docker" inspect @uuid) (println))))]
+                   ("xargs"  --no-run-if-empty docker inspect)))]
     (with-action-values [res]
       (if (zero? (:exit res))
         {:exit 0
-         :out (->> (split (:out res) #"(?m)^\{")
-                   (remove blank?)
-                   (map #(str "{" %))
-                   (map yaml/parse-string)
-                   vec)}))))
+         :out (-> (:out res)
+                  yaml/parse-string
+                  vec)}))))
 
 (def run-options {:interactive :i
                   :ptty :t
@@ -131,11 +129,11 @@
       (if (zero? (:exit res))
         ;; remove everything before first {, such as downloading messages
         ;; from the image being pulled
-        (let [out (string/replace-first (:out res) #"(?m)[^{}]*\{" "{")]
+        (let [out (string/replace-first (:out res) #"(?m)[^{}]*\{" "[{")]
           (debugf "run %s" out)
           (try
             {:exit 0
-             :out (yaml/parse-string out)}
+             :out (first (yaml/parse-string out))}
             (catch Exception e
               {:exit 1
                :exception e})))
