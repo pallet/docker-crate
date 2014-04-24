@@ -54,7 +54,7 @@
             ::reboot true)))
 
 (defmethod-version-plan
-    settings-map {:os :ubuntu :os-version [13 04]}
+    settings-map {:os :ubuntu :os-version [[13 04]]}
     [os os-version version settings]
   (cond
    (:install-strategy settings) settings
@@ -117,7 +117,7 @@
   "Return a list of nodes"
   []
   (let [res (exec-script
-             (pipe ("docker" ps -notrunc)
+             (pipe ("docker" ps --no-trunc)
                    ("tail" -n "+2")
                    ("awk" "'{ print $1 }'")
                    ("xargs"  --no-run-if-empty docker inspect)))]
