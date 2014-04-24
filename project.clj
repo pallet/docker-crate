@@ -5,8 +5,4 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [com.palletops/pallet "0.8.0-RC.9"]
-                 [clj-yaml "0.4.0"]]
-  :resource {:resource-paths ["doc-src"]
-             :target-path "target/classes/pallet_crate/docker_crate/"
-             :includes [#"doc-src/USAGE.*"]}
-  :prep-tasks ["resource" "crate-doc"])
+                 [clj-yaml "0.4.0"]])
