@@ -27,7 +27,8 @@
 
 ;;; # Settings
 (defn default-settings [options]
-  {:ppa {:url "ppa:dotcloud/lxc-docker"}})
+  {:ufw-file "/etc/default/ufw"
+   :ufw-settings {:DEFAULT_FORWARD_POLICY "ACCEPT"}})
 
 ;;; At the moment we just have a single implementation of settings,
 ;;; but this is open-coded.
@@ -40,19 +41,32 @@
    (:install-strategy settings) settings
    :else  (assoc settings
             :install-strategy :package-source
-            :package-source {:name "dotcloud" :apt (:ppa settings)}
+            :package-source
+            (:package-source settings
+                             {:name "docker"
+                              :apt {:scopes ["main"]
+                                    :release "docker"
+                                    :url "http://get.docker.io/ubuntu"
+                                    :key-url "https://get.docker.io/gpg"}})
             :packages ["lxc-docker"]
-            ::packages ["linux-image-generic-lts-raring"]
+            ::packages ["linux-image-generic-lts-raring"
+                        "linux-headers-generic-lts-raring"]
             ::reboot true)))
 
 (defmethod-version-plan
-    settings-map {:os :ubuntu :os-version [13 04]}
+    settings-map {:os :ubuntu :os-version [[13 04]]}
     [os os-version version settings]
   (cond
    (:install-strategy settings) settings
    :else  (assoc settings
             :install-strategy :package-source
-            :package-source {:name "dotcloud" :apt (:ppa settings)}
+            :package-source
+            (:package-source settings
+                             {:name "docker"
+                              :apt {:scopes ["main"]
+                                    :release "docker"
+                                    :url "http://get.docker.io/ubuntu"
+                                    :key-url "https://get.docker.io/gpg"}})
             :packages ["lxc-docker"]
             ::packages ["linux-image-extra-`uname -r`"])))
 
@@ -63,6 +77,7 @@
    & {:keys [instance-id] :as options}]
   (let [settings (merge (default-settings options) settings)
         settings (settings-map (:version settings) settings)]
+    (debugf "docker settings %s" settings)
     (assoc-settings :docker settings {:instance-id instance-id})))
 
 
@@ -80,29 +95,38 @@
     (crate-install/install :docker instance-id)))
 
 ;;; # Configuration
+(defn ufw-config
+  "Produce a ufw config file based on a map of configuration values."
+  [settings]
+  (string/join \newline
+               (map (fn [[k v]] (str (name k) "=\"\"" v "\"")) settings)))
+
+(defplan configure-ufw
+  [path ufw-settings]
+  (remote-file path :content (ufw-config ufw-settings)))
+
 (defplan configure
   "Write all config files"
   [{:keys [instance-id] :as options}]
-  (let [{:keys [config] :as settings} (get-settings :docker options)]
-    ))
+  (let [{:keys [config ufw-file ufw-settings] :as settings}
+        (get-settings :docker options)]
+    (configure-ufw ufw-file ufw-settings)))
 
 ;;; # Commands
 (defplan nodes
   "Return a list of nodes"
   []
   (let [res (exec-script
-             (pipe ("docker" ps -notrunc)
+             (pipe ("docker" ps --no-trunc)
                    ("tail" -n "+2")
                    ("awk" "'{ print $1 }'")
-                   (while ("read" uuid) ("docker" inspect @uuid) (println))))]
+                   ("xargs"  --no-run-if-empty docker inspect)))]
     (with-action-values [res]
       (if (zero? (:exit res))
         {:exit 0
-         :out (->> (split (:out res) #"(?m)^\{")
-                   (remove blank?)
-                   (map #(str "{" %))
-                   (map yaml/parse-string)
-                   vec)}))))
+         :out (-> (:out res)
+                  yaml/parse-string
+                  vec)}))))
 
 (def run-options {:interactive :i
                   :ptty :t
@@ -131,11 +155,11 @@
       (if (zero? (:exit res))
         ;; remove everything before first {, such as downloading messages
         ;; from the image being pulled
-        (let [out (string/replace-first (:out res) #"(?m)[^{}]*\{" "{")]
+        (let [out (string/replace-first (:out res) #"(?m)[^{}]*\{" "[{")]
           (debugf "run %s" out)
           (try
             {:exit 0
-             :out (yaml/parse-string out)}
+             :out (first (yaml/parse-string out))}
             (catch Exception e
               {:exit 1
                :exception e})))

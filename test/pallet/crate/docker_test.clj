@@ -29,14 +29,15 @@
                                  {:detached true})
                               n (docker/nodes)
                               id (with-action-values [v]
-                                   (debugf "node id is %s" v)
-                                   {:id (:Id (:out v))})]
+                                   (debugf "node id is %s" (:ID (:out v)))
+                                   {:id (:ID (:out v))})]
                           (assoc-settings :docker-test id)
                           (let [n2 (docker/nodes)]
-                             (with-action-values [n n2 id]
-                               (assert (= 1 (count (:out n))) "run failed")
-                               (assert (= (:id id) (:Id (first (:out n))))
-                                       "incorrect id")))))
+                            (with-action-values [n n2 id]
+                              (debugf "nodes %s" (:out n))
+                              (assert (= 1 (count (:out n))) "run failed")
+                              (assert (= (:id id) (:ID (first (:out n))))
+                                      "incorrect id")))))
             :test-kill (plan-fn
                          (let [{:keys [id]} (get-settings :docker-test)]
                            (docker/kill id)
